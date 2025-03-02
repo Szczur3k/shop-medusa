@@ -1,24 +1,26 @@
-import clsx from 'clsx';
+'use client';
+
+import { useStoreCurrency } from 'lib/hooks/use-store-currency';
 
 const Price = ({
   amount,
   className,
-  currencyCode = 'USD',
+  currencyCode,
   currencyCodeClassName
 }: {
   amount: string;
   className?: string;
-  currencyCode: string;
+  currencyCode?: string;
   currencyCodeClassName?: string;
-} & React.ComponentProps<'p'>) => (
-  <p suppressHydrationWarning={true} className={className}>
-    {`${new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode,
-      currencyDisplay: 'narrowSymbol'
-    }).format(parseFloat(amount))}`}
-    <span className={clsx('ml-1 inline', currencyCodeClassName)}>{`${currencyCode}`}</span>
-  </p>
-);
+} & React.ComponentProps<'p'>) => {
+  const defaultCurrency = useStoreCurrency();
+  const formattedCurrencyCode = (currencyCode || defaultCurrency).toUpperCase();
+  
+  return (
+    <p suppressHydrationWarning={true} className={className}>
+      {`${formattedCurrencyCode === 'PLN' ? '' : '$'}${parseFloat(amount).toFixed(2)}${formattedCurrencyCode}`}
+    </p>
+  );
+};
 
 export default Price;

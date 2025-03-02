@@ -1,12 +1,25 @@
 'use client';
 
-import { PlusIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
-import { addItem } from 'components/cart/actions';
 import LoadingDots from 'components/loading-dots';
+import { addToCart, createCart } from 'lib/medusa/client';
 import { ProductVariant } from 'lib/medusa/types';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTransition } from 'react';
+import { useCallback, useTransition } from 'react';
+
+function getCookie(name: string): string | undefined {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return undefined;
+}
+
+function setCookie(name: string, value: string, days: number = 90) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value};${expires};path=/`;
+}
 
 export function AddToCart({
   variants,
@@ -29,40 +42,54 @@ export function AddToCart({
     ? 'Out of stock'
     : !selectedVariantId
     ? 'Please select options'
-    : undefined;
+    : isPending
+    ? 'Adding...'
+    : 'Add to cart';
+
+  const handleAddToCart = useCallback(async () => {
+    if (!selectedVariantId) return;
+    
+    try {
+      let cartId = getCookie('cartId');
+      
+      if (!cartId) {
+        const cart = await createCart();
+        if (!cart?.id) {
+          throw new Error('Failed to create cart');
+        }
+        cartId = cart.id;
+        setCookie('cartId', cartId);
+      }
+
+      await addToCart(cartId, {
+        variantId: selectedVariantId,
+        quantity: 1
+      });
+      
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to add item to cart:', error);
+    }
+  }, [selectedVariantId, router]);
 
   return (
     <button
-      aria-label="Add item to cart"
+      aria-label="Add to cart"
       disabled={isPending || !availableForSale || !selectedVariantId}
-      title={title}
       onClick={() => {
-        // Safeguard in case someone messes with `disabled` in devtools.
         if (!availableForSale || !selectedVariantId) return;
-
-        startTransition(async () => {
-          const error = await addItem(selectedVariantId);
-
-          if (error) {
-            // Trigger the error boundary in the root error.js
-            throw new Error(error.toString());
-          }
-
-          router.refresh();
-        });
+        startTransition(handleAddToCart);
       }}
       className={clsx(
-        'relative flex w-full items-center justify-center rounded-full bg-blue-600 p-4 tracking-wide text-white hover:opacity-90',
+        'flex w-full items-center justify-center bg-black p-4 text-sm uppercase tracking-wide text-white opacity-90 hover:opacity-100 dark:bg-white dark:text-black',
         {
-          'cursor-not-allowed opacity-60 hover:opacity-60': !availableForSale || !selectedVariantId,
+          'cursor-not-allowed opacity-60': !availableForSale || !selectedVariantId,
           'cursor-not-allowed': isPending
         }
       )}
     >
-      <div className="absolute left-0 ml-4">
-        {!isPending ? <PlusIcon className="h-5" /> : <LoadingDots className="mb-3 bg-white" />}
-      </div>
-      <span>{availableForSale ? 'Add To Cart' : 'Out Of Stock'}</span>
+      <span>{title}</span>
+      {isPending ? <LoadingDots className="bg-white dark:bg-black" /> : null}
     </button>
   );
 }

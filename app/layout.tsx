@@ -1,6 +1,7 @@
 import Navbar from 'components/layout/navbar';
+import Collections from 'components/layout/search/collections';
 import { Inter } from 'next/font/google';
-import { ReactNode, Suspense } from 'react';
+import { ReactNode } from 'react';
 import './globals.css';
 
 const { TWITTER_CREATOR, TWITTER_SITE, SITE_NAME } = process.env;
@@ -37,11 +38,14 @@ const inter = Inter({
 export default async function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.variable}>
-      <body className="bg-neutral-50 text-black selection:bg-teal-300 dark:bg-neutral-900 dark:text-white dark:selection:bg-pink-500 dark:selection:text-white">
+      <body className="bg-white text-black selection:bg-teal-300 dark:bg-neutral-900 dark:text-white dark:selection:bg-pink-500 dark:selection:text-white">
         <Navbar />
-        <Suspense>
-          <main>{children}</main>
-        </Suspense>
+        <div className="mx-auto flex max-w-screen-2xl gap-8 px-4 pb-4 pt-4">
+          <div className="hidden w-[200px] lg:block">
+            <Collections />
+          </div>
+          <main className="min-h-screen flex-1">{children}</main>
+        </div>
       </body>
     </html>
   );

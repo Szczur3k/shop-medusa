@@ -17,16 +17,16 @@ function FilterItemList({ list }: { list: ListItem[] }) {
 
 export default function FilterList({ list, title }: { list: ListItem[]; title?: string }) {
   return (
-    <>
-      <nav>
-        {title ? <h3 className="hidden text-xs text-neutral-500 md:block">{title}</h3> : null}
-        <ul className="hidden md:block">
-          <FilterItemList list={list} />
-        </ul>
-        <ul className="md:hidden">
-          <FilterItemDropdown list={list} />
-        </ul>
-      </nav>
-    </>
+    <nav className="sticky top-20">
+      {title ? (
+        <h3 className="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
+      ) : null}
+      <ul className="hidden space-y-3 md:block">
+        <FilterItemList list={list} />
+      </ul>
+      <ul className="md:hidden">
+        <FilterItemDropdown list={list} />
+      </ul>
+    </nav>
   );
 }

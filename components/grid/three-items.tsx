@@ -1,5 +1,5 @@
 import { GridTileImage } from 'components/grid/tile';
-import { getCategoryProducts } from 'lib/medusa';
+import { getProducts } from 'lib/medusa/client';
 import type { Product } from 'lib/medusa/types';
 import Link from 'next/link';
 
@@ -38,12 +38,21 @@ function ThreeItemGridItem({
 }
 
 export async function ThreeItemGrid() {
-  // Collections that start with `hidden-*` are hidden from the search page.
-  const homepageItems = await getCategoryProducts('hidden-homepage-featured-items');
+  console.log('ThreeItemGrid: Fetching products...');
+  const products = await getProducts();
+  console.log('ThreeItemGrid: Fetched products:', products);
 
-  if (!homepageItems[0] || !homepageItems[1] || !homepageItems[2]) return null;
+  if (!products || products.length === 0) {
+    console.log('ThreeItemGrid: No products found');
+    return null;
+  }
 
-  const [firstProduct, secondProduct, thirdProduct] = homepageItems;
+  const [firstProduct, secondProduct, thirdProduct] = products;
+
+  if (!firstProduct || !secondProduct || !thirdProduct) {
+    console.log('ThreeItemGrid: Not enough products');
+    return null;
+  }
 
   return (
     <section className="mx-auto grid max-w-screen-2xl gap-4 px-4 pb-4 md:grid-cols-6 md:grid-rows-2">

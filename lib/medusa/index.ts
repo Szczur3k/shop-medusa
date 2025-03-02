@@ -1,7 +1,6 @@
 import { isMedusaError } from 'lib/type-guards';
 
 import { TAGS } from 'lib/constants';
-import { mapOptionIds } from 'lib/utils';
 import { revalidateTag } from 'next/cache';
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,21 +13,19 @@ import {
   MedusaImage,
   MedusaLineItem,
   MedusaProduct,
-  MedusaProductCollection,
   MedusaProductOption,
   MedusaProductVariant,
   Product,
   ProductCategory,
   ProductCollection,
   ProductOption,
-  ProductVariant,
-  SelectedOption
+  ProductVariant
 } from './types';
 
 const ENDPOINT = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_API ?? 'http://localhost:9000';
 const MEDUSA_API_KEY = process.env.MEDUSA_API_KEY ?? '';
 
-export default async function medusaRequest({
+export async function medusaRequest({
   cache = 'force-cache',
   method,
   path,
@@ -61,7 +58,6 @@ export default async function medusaRequest({
 
   try {
     const result = await fetch(`${ENDPOINT}/store${path}`, options);
-
     const body = await result.json();
 
     if (body.errors) {
@@ -86,10 +82,10 @@ export default async function medusaRequest({
   }
 }
 
-const reshapeCart = (cart: MedusaCart): Cart => {
+export const reshapeCart = (cart: MedusaCart): Cart => {
   const lines = cart?.items?.map((item) => reshapeLineItem(item)) || [];
   const totalQuantity = lines.reduce((a, b) => a + b.quantity, 0);
-  const checkoutUrl = '/checkout'; // todo: implement medusa checkout flow
+  const checkoutUrl = '/checkout';
   const currencyCode = cart.region?.currency_code.toUpperCase() || 'USD';
 
   let subtotalAmount = '0';
@@ -183,15 +179,13 @@ const reshapeLineItem = (lineItem: MedusaLineItem): CartItem => {
   };
 };
 
-const reshapeImages = (images?: MedusaImage[], productTitle?: string): Image[] => {
-  if (!images) return [];
-  return images.map((image) => {
-    const filename = image.url.match(/.*\/(.*)\..*/)![1];
-    return {
+const reshapeImages = (images: MedusaImage[] = [], title: string): Image[] => {
+  return (
+    images?.map((image) => ({
       ...image,
-      altText: `${productTitle} - ${filename}`
-    };
-  });
+      altText: `${title} - ${image.url.split('/').pop()?.split('.')[0] || ''}`
+    })) || []
+  );
 };
 
 const reshapeProduct = (product: MedusaProduct): Product => {
@@ -245,40 +239,30 @@ const reshapeProduct = (product: MedusaProduct): Product => {
   };
 };
 
-const reshapeProductOption = (productOption: MedusaProductOption): ProductOption => {
-  const availableForSale = productOption.product?.variants?.[0]?.purchasable || true;
-  const name = productOption.title;
-  let values = productOption.values?.map((option) => option.value) || [];
-  values = [...new Set(values)];
-
+const reshapeProductOption = (option: MedusaProductOption): ProductOption => {
   return {
-    ...productOption,
-    availableForSale,
-    name,
-    values
+    id: option.id,
+    name: option.title,
+    values: option.values?.map((value) => value.value) || []
   };
 };
 
 const reshapeProductVariant = (
-  productVariant: MedusaProductVariant,
-  productOptions?: MedusaProductOption[]
+  variant: MedusaProductVariant,
+  productOptions: MedusaProductOption[] = []
 ): ProductVariant => {
-  let selectedOptions: SelectedOption[] = [];
-  if (productOptions && productVariant.options) {
-    const optionIdMap = mapOptionIds(productOptions);
-    selectedOptions = productVariant.options.map((option) => ({
-      name: optionIdMap[option.option_id] ?? '',
+  const selectedOptions =
+    variant.options?.map((option) => ({
+      name: productOptions?.find((opt) => opt.id === option.option_id)?.title || '',
       value: option.value
-    }));
-  }
-  const availableForSale = productVariant.purchasable || true;
-  const price = calculateVariantAmount(productVariant);
+    })) || [];
 
   return {
-    ...productVariant,
-    availableForSale,
+    id: variant.id,
+    title: variant.title,
+    availableForSale: variant.purchasable ?? true,
     selectedOptions,
-    price
+    price: calculateVariantAmount(variant)
   };
 };
 
@@ -359,18 +343,27 @@ export async function getCart(cartId: string): Promise<Cart | null> {
 }
 
 export async function getCategories(): Promise<ProductCollection[]> {
-  const res = await medusaRequest({
-    method: 'GET',
-    path: '/product-categories',
-    tags: ['categories']
-  });
+  try {
+    const res = await medusaRequest({
+      method: 'GET',
+      path: '/product-categories',
+      tags: ['categories']
+    });
 
-  // Reshape categories and hide categories starting with 'hidden'
-  const categories = res.body.product_categories
-    .map((collection: ProductCategory) => reshapeCategory(collection))
-    .filter((collection: MedusaProductCollection) => !collection.handle.startsWith('hidden'));
+    if (!res?.body?.product_categories) {
+      console.warn('No product categories found');
+      return [];
+    }
 
-  return categories;
+    const categories = res.body.product_categories
+      .map((collection: ProductCategory) => reshapeCategory(collection))
+      .filter((collection: ProductCollection) => !collection.handle.startsWith('hidden'));
+
+    return categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
 }
 
 export async function getCategory(handle: string): Promise<ProductCollection | undefined> {
@@ -382,26 +375,29 @@ export async function getCategory(handle: string): Promise<ProductCollection | u
   return res.body.product_categories[0];
 }
 
-export async function getCategoryProducts(
-  handle: string,
-  reverse?: boolean,
-  sortKey?: string
-): Promise<Product[]> {
-  const res = await medusaRequest({
-    method: 'GET',
-    path: `/product-categories?handle=${handle}`,
-    tags: ['categories']
-  });
+export async function getCategoryProducts(handle: string): Promise<Product[]> {
+  try {
+    console.log('Fetching products for category:', handle);
+    const res = await medusaRequest({
+      method: 'GET',
+      path: '/products',
+      tags: [TAGS.products]
+    });
 
-  if (!res) {
+    console.log('Response from Medusa:', res);
+
+    if (!res?.body?.products) {
+      console.log('No products found in response');
+      return [];
+    }
+
+    const products = res.body.products.map((product: MedusaProduct) => reshapeProduct(product));
+    console.log('Reshaped products:', products);
+    return products;
+  } catch (error) {
+    console.error('Error fetching category products:', error);
     return [];
   }
-
-  const category = res.body.product_categories[0];
-
-  const category_products = await getProducts({ reverse, sortKey, categoryId: category.id });
-
-  return category_products;
 }
 
 export async function getProduct(handle: string): Promise<Product> {

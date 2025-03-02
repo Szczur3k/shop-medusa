@@ -1,5 +1,4 @@
 import Cart from 'components/cart';
-import OpenCart from 'components/cart/open-cart';
 import LogoSquare from 'components/logo-square';
 import { getMenu } from 'lib/medusa';
 import { Menu } from 'lib/medusa/types';
@@ -15,7 +14,9 @@ export default async function Navbar() {
   return (
     <nav className="relative flex items-center justify-between p-4 lg:px-6">
       <div className="block flex-none md:hidden">
-        <MobileMenu menu={menu} />
+        <Suspense fallback={<div>Loading menu...</div>}>
+          <MobileMenu menu={menu} />
+        </Suspense>
       </div>
       <div className="flex w-full items-center">
         <div className="flex w-full md:w-1/3">
@@ -45,10 +46,12 @@ export default async function Navbar() {
           ) : null}
         </div>
         <div className="hidden justify-center md:flex md:w-1/3">
-          <Search />
+          <Suspense fallback={<div>Loading search...</div>}>
+            <Search />
+          </Suspense>
         </div>
         <div className="flex justify-end md:w-1/3">
-          <Suspense fallback={<OpenCart />}>
+          <Suspense fallback={<div>Loading cart...</div>}>
             <Cart />
           </Suspense>
         </div>

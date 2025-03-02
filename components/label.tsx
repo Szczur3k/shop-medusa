@@ -1,4 +1,5 @@
-import clsx from 'clsx';
+'use client';
+
 import Price from './price';
 
 const Label = ({
@@ -13,18 +14,13 @@ const Label = ({
   position?: 'bottom' | 'center';
 }) => {
   return (
-    <div
-      className={clsx('absolute bottom-0 left-0 flex w-full px-4 pb-4 @container/label', {
-        'lg:px-20 lg:pb-[35%]': position === 'center'
-      })}
-    >
-      <div className="flex items-center rounded-full border bg-white/70 p-1 text-xs font-semibold text-black backdrop-blur-md dark:border-neutral-800 dark:bg-black/70 dark:text-white">
-        <h3 className="mr-4 line-clamp-2 flex-grow pl-2 leading-none tracking-tight">{title}</h3>
+    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/60 to-transparent">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-sm font-medium text-white line-clamp-1">{title}</h3>
         <Price
-          className="flex-none rounded-full bg-blue-600 p-2 text-white"
+          className="text-sm font-semibold text-white"
           amount={amount}
           currencyCode={currencyCode}
-          currencyCodeClassName="hidden @[275px]/label:inline"
         />
       </div>
     </div>

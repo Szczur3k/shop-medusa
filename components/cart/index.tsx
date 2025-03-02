@@ -1,21 +1,52 @@
-import { createCart, getCart } from 'lib/medusa';
-import { cookies } from 'next/headers';
+'use client';
+
+import { createCart, getCart } from 'lib/medusa/client';
+import { Cart as CartType } from 'lib/medusa/types';
+import { useEffect, useState } from 'react';
 import CartModal from './modal';
 
-export default async function Cart() {
-  const cartId = cookies().get('cartId')?.value;
-  let cart;
+function getCookie(name: string): string | undefined {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift();
+  return undefined;
+}
 
-  if (cartId) {
-    cart = await getCart(cartId);
-  }
+function setCookie(name: string, value: string, days: number = 90) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  document.cookie = `${name}=${value};${expires};path=/`;
+}
 
-  // If the `cartId` from the cookie is not set or the cart is empty
-  // (old carts becomes `null` when you checkout), then get a new `cartId`
-  //  and re-fetch the cart.
-  if (!cartId || !cart) {
-    cart = await createCart();
-  }
+export default function Cart() {
+  const [cart, setCart] = useState<CartType | undefined>(undefined);
+
+  useEffect(() => {
+    async function initCart() {
+      try {
+        let cartId = getCookie('cartId');
+        let cartData: CartType | undefined = undefined;
+
+        if (cartId) {
+          cartData = await getCart(cartId) || undefined;
+        }
+
+        if (!cartId || !cartData) {
+          cartData = await createCart();
+          if (cartData?.id) {
+            setCookie('cartId', cartData.id);
+          }
+        }
+
+        setCart(cartData);
+      } catch (error) {
+        console.error('Error initializing cart:', error);
+      }
+    }
+
+    initCart();
+  }, []);
 
   return <CartModal cart={cart} />;
 }
